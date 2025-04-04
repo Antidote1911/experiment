@@ -22,8 +22,10 @@ use rand::Rng;
 // const KEY_SIZE: usize = 32;
 const NONCE_SIZE: usize = 19;
 const SALT_SIZE: usize = 16;
-const CHUNK_SIZE: usize = 1024 * 1024; // 1 MB
 
+const TAG_LEN: usize = 16;
+const ENCRYPTION_CHUNK_SIZE: usize = 1024 * 1024; // 1 MB
+const DECRYPTION_CHUNK_SIZE: usize = ENCRYPTION_CHUNK_SIZE + TAG_LEN;
 
 fn encrypt_file<P: AsRef<Path>>(input_path: P, output_path: P, key: &[u8]) -> Result<(), anyhow::Error>  {
 
@@ -42,31 +44,28 @@ fn encrypt_file<P: AsRef<Path>>(input_path: P, output_path: P, key: &[u8]) -> Re
     let cipher = XChaCha20Poly1305::new((&derived_key).into());
     let mut stream_encryptor = stream::EncryptorBE32::from_aead(cipher, &nonce.into());
 
-    let input_file = File::open(input_path)?;
-    let output_file = File::create(output_path)?;
-
-    let mut reader = BufReader::new(input_file);
-    let mut writer = BufWriter::new(output_file);
+    let mut input_file = File::open(input_path)?;
+    let mut output_file = File::create(output_path)?;
 
     // write salt and nonce
-    writer.write_all(&salt)?;
-    writer.write_all(&nonce)?;
+    output_file.write_all(&salt)?;
+    output_file.write_all(&nonce)?;
 
-    let mut buffer = [0u8; CHUNK_SIZE];
+    let mut buffer = [0u8; ENCRYPTION_CHUNK_SIZE];
 
     loop {
-        let read_count = reader.read(&mut buffer)?;
+        let read_count = input_file.read(&mut buffer)?;
 
-        if read_count == CHUNK_SIZE {
+        if read_count == ENCRYPTION_CHUNK_SIZE {
             let ciphertext = stream_encryptor
                 .encrypt_next(buffer.as_slice())
                 .map_err(|err| anyhow!("Encrypting file: {}", err))?;
-            writer.write_all(&ciphertext)?;
+            output_file.write_all(&ciphertext)?;
         } else {
             let ciphertext = stream_encryptor
                 .encrypt_last(&buffer[..read_count])
                 .map_err(|err| anyhow!("Encrypting file: {}", err))?;
-            writer.write_all(&ciphertext)?;
+            output_file.write_all(&ciphertext)?;
             break;
         }
     }
@@ -74,7 +73,7 @@ fn encrypt_file<P: AsRef<Path>>(input_path: P, output_path: P, key: &[u8]) -> Re
     Ok(())
 }
 
-fn decrypt_file<P: AsRef<Path>>(input_path: P, output_path: P,key:&[u8]) -> Result<(), Box<dyn std::error::Error>> {
+fn decrypt_file<P: AsRef<Path>>(input_path: P, output_path: P,key:&[u8]) -> Result<(), anyhow::Error> {
 
     let mut input_file = File::open(input_path)?;
     let mut output_file = File::create(output_path)?;
@@ -92,7 +91,7 @@ fn decrypt_file<P: AsRef<Path>>(input_path: P, output_path: P,key:&[u8]) -> Resu
     let cipher = XChaCha20Poly1305::new((&derived_key).into());
     let mut stream_decryptor = stream::DecryptorBE32::from_aead(cipher, &nonce.into());
 
-    let mut buffer = [0u8; CHUNK_SIZE + 16]; // CHUNK_SIZE bytes data + 16 bytes tag
+    let mut buffer = [0u8; DECRYPTION_CHUNK_SIZE]; // CHUNK_SIZE bytes data + 16 bytes tag
     loop {
         let read_count = input_file.read(&mut buffer)?;
 
