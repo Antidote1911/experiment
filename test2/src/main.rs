@@ -24,7 +24,7 @@ const NONCE_SIZE: usize = 19;
 const SALT_SIZE: usize = 16;
 
 const TAG_LEN: usize = 16;
-const ENCRYPTION_CHUNK_SIZE: usize = 1024 * 1024; // 1 MB
+const ENCRYPTION_CHUNK_SIZE: usize = 1024 * 512; // 1 MB
 const DECRYPTION_CHUNK_SIZE: usize = ENCRYPTION_CHUNK_SIZE + TAG_LEN;
 
 fn encrypt_file<P: AsRef<Path>>(input_path: P, output_path: P, key: &[u8]) -> Result<(), anyhow::Error>  {
@@ -35,8 +35,16 @@ fn encrypt_file<P: AsRef<Path>>(input_path: P, output_path: P, key: &[u8]) -> Re
     let salt: [u8; SALT_SIZE] = rand::rng().random();
     let nonce: [u8; NONCE_SIZE] = rand::rng().random();
 
+    let hexsalt= hex::encode_upper(salt);
+    let hexnonce= hex::encode_upper(nonce);
+    println!("Salt  {}: Hex:  {}", salt.len(),hexsalt);
+    println!("Nonce {}: Hex:  {}", nonce.len(),hexnonce);
+
     let mut derived_key = [0u8; 32]; // Can be any desired size
     Argon2::default().hash_password_into(key, &salt, &mut derived_key).unwrap();
+
+    let hexkey= hex::encode_upper(derived_key);
+    println!("Key   {}: Hex:  {}", derived_key.len(),hexkey);
 
     //let nonce= XNonce::from_slice(NONCE);
 
@@ -69,10 +77,8 @@ fn encrypt_file<P: AsRef<Path>>(input_path: P, output_path: P, key: &[u8]) -> Re
             break;
         }
     }
-
     Ok(())
 }
-
 fn decrypt_file<P: AsRef<Path>>(input_path: P, output_path: P,key:&[u8]) -> Result<(), anyhow::Error> {
 
     let mut input_file = File::open(input_path)?;
@@ -84,8 +90,16 @@ fn decrypt_file<P: AsRef<Path>>(input_path: P, output_path: P,key:&[u8]) -> Resu
     input_file.read_exact(&mut salt)?;
     input_file.read_exact(&mut nonce)?;
 
+    let hexsalt= hex::encode_upper(salt);
+    let hexnonce= hex::encode_upper(nonce);
+    println!("Salt  {}: Hex:  {}", salt.len(),hexsalt);
+    println!("Nonce {}: Hex:  {}", nonce.len(),hexnonce);
+
     let mut derived_key = [0u8; 32]; // Can be any desired size
     Argon2::default().hash_password_into(key, &salt, &mut derived_key).unwrap();
+
+    let hexkey= hex::encode_upper(derived_key);
+    println!("Key   {}: Hex:  {}", derived_key.len(),hexkey);
 
     // create the stream decryptor
     let cipher = XChaCha20Poly1305::new((&derived_key).into());
