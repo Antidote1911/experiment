@@ -14,11 +14,11 @@ use std::io::{self, BufReader, BufWriter, Read, Write};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 use argon2::{Algorithm, Argon2, Params, ParamsBuilder, Version};
-use rand::Rng;
+use rand::{Rng, RngCore};
 
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
-
+use rand::rngs::OsRng;
 // The nonce size for *BE32 is 5-bytes smaller (32-bit counter + last block flag byte) than the 24-byte XChaCha20Poly1305 nonce so 24 - 5 = 19 bytes.
 // You need to use GenericArray<u8, U19>.
 
@@ -30,13 +30,23 @@ const TAG_LEN: usize = 16;
 const ENCRYPTION_CHUNK_SIZE: usize = 1024 * 512; // 1 MB
 const DECRYPTION_CHUNK_SIZE: usize = ENCRYPTION_CHUNK_SIZE + TAG_LEN;
 
+fn generate_salt() -> [u8; SALT_SIZE] {
+    let salt: [u8; SALT_SIZE] = rand::rng().random();
+    salt
+}
+
+fn generate_nonce() -> [u8; NONCE_SIZE] {
+    let nonce: [u8; NONCE_SIZE] = rand::rng().random();
+    nonce
+}
+
 fn encrypt_file<P: AsRef<Path>>(input_path: P, output_path: P, password: &str) -> Result<(), anyhow::Error>  {
 
     //let key   : Key               = XChaCha20Poly1305::generate_key(&mut OsRng);
     //let nonce : XNonce            = XChaCha20Poly1305::generate_nonce(&mut OsRng);
 
-    let salt: [u8; SALT_SIZE] = rand::rng().random();
-    let nonce: [u8; NONCE_SIZE] = rand::rng().random();
+    let salt = generate_salt();
+    let nonce= generate_nonce();
 
     let hexsalt= hex::encode_upper(salt);
     let hexnonce= hex::encode_upper(nonce);
@@ -95,6 +105,7 @@ fn decrypt_file<P: AsRef<Path>>(input_path: P, output_path: P,password:&str) -> 
 
     let mut input_file = File::open(input_path)?;
     let mut output_file = File::create(output_path)?;
+
 
     let mut salt = [0u8; SALT_SIZE];
     let mut nonce = [0u8; NONCE_SIZE];
