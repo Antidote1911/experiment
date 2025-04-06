@@ -1,9 +1,13 @@
 [package]
-name = "age_encryption"
+name = "file_encryption"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-age = "0.11.1"
+aead = { version = "0.5.2", features = ["stream"] }
+chacha20poly1305 = "0.10.1"
+hex = "0.4.3"
+rand = "0.9.0"
+anyhow = "1.0.97"
+argon2 = "0.5.3"
+indicatif = "0.16"

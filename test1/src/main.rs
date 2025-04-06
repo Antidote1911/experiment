@@ -1,7 +1,7 @@
 use aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::XNonce;
-
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::Path;
@@ -9,7 +9,7 @@ use std::path::Path;
 const KEY: &[u8; 32] = b"an example very very secret key.";
 const NONCE: &[u8; 24] = b"unique nonce goes here!!";
 
-const CHUNK_SIZE: usize = 1024 * 1024; // 1 MB
+const CHUNK_SIZE: usize = 1024 * 512; // 1 MB
 
 fn encrypt_file<P: AsRef<Path>>(input_path: P, output_path: P) -> Result<(), Box<dyn std::error::Error>> {
     let key = aead::Key::<XChaCha20Poly1305>::from_slice(KEY);
@@ -68,8 +68,13 @@ fn main() -> io::Result<()> {
     let encrypted_path = "5.bin";
     let decrypted_path = "decrypted.mp4";
 
+let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
     encrypt_file(input_path, encrypted_path).expect("Encryption failed");
     decrypt_file(encrypted_path, decrypted_path).expect("Decryption failed");
+    let end = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    
+    let test=end-start;
+    println!("Time elapsed: {} ms", test.as_millis());
 
     Ok(())
 }
